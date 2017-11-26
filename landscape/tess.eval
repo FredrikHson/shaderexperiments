@@ -1,0 +1,22 @@
+#version 460
+//layout(triangles, equal_spacing, cw) in;
+layout(triangles, fractional_odd_spacing, cw) in;
+in vec3 tcPosition[];
+in vec2 tcTexcoord[];
+out vec3 tePosition;
+out vec3 tePatchDistance;
+out vec2 texcoord;
+uniform mat4 Projection;
+uniform mat4 Modelview;
+
+#define getmixed(r) (gl_TessCoord.x * r[0] + \
+                     gl_TessCoord.y * r[1] + \
+                     gl_TessCoord.z * r[2])
+
+void main()
+{
+    tePatchDistance = gl_TessCoord;
+    tePosition = getmixed(tcPosition);
+    texcoord = getmixed(tcTexcoord);
+    gl_Position = vec4(tePosition, 1);
+}

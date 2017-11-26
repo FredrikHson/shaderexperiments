@@ -1,0 +1,35 @@
+#version 460
+layout(vertices = 3) out;
+in vec3 position[];
+in vec2 texcoord[];
+out vec3 tcPosition[];
+out vec2 tcTexcoord[];
+uniform float TessLevel = 2;
+uniform vec2 mpos;
+
+#define ID gl_InvocationID
+precise float getlevel(vec2 v)
+{
+    //float dist = pow(1 - distance(vec2(mpos.x, 1 - mpos.y), v), 5);
+    vec2 center=vec2(0.5,0.5)+normalize(vec2(mpos.x,1-mpos.y)-vec2(0.5,0.5))*-0.060;
+    vec2 mdir=normalize(vec2(mpos.x,1-mpos.y)-center);
+    vec2 dir=normalize(v-center);
+    float dist = min(1,max(0,pow(dot(mdir,dir),16))*5);
+    dist *= pow(1 - distance(vec2(0.5,0.5), v.xy), 4);
+    return  max(0.01, 16 * dist);
+}
+void main()
+{
+    tcPosition[ID] = position[ID];
+    tcTexcoord[ID] = texcoord[ID];
+
+    if(ID == 0)
+    {
+        float level = 1;
+        gl_TessLevelInner[0] = getlevel(((texcoord[0] + texcoord[1] + texcoord[2]) / 3.0));
+        gl_TessLevelOuter[2] = getlevel(((texcoord[0] + texcoord[1]) / 2.0));
+        gl_TessLevelOuter[0] = getlevel(((texcoord[1] + texcoord[2]) / 2.0));
+        gl_TessLevelOuter[1] = getlevel(((texcoord[2] + texcoord[0]) / 2.0));
+        //gl_TessLevelOuter[2] = 1;
+    }
+}
