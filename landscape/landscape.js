@@ -1,12 +1,15 @@
 print("initing");
-heightbuffer1 = createrendertarget(1024, 1024, 1, GL_RGB, GL_RGBA32F);
-heightbuffer2 = createrendertarget(1024, 1024, 1, GL_RGB, GL_RGBA32F);
-heightbuffer3 = createrendertarget(1024, 1024, 1, GL_RGB, GL_RGBA32F);
-normalbuffer = createrendertarget(1024, 1024, 1, GL_RGB, GL_RGBA32F);
+rockheight = createrendertarget(512, 512, 1, GL_RGB, GL_RGBA32F);
+heightbuffer1 = createrendertarget(512, 512, 1, GL_RGB, GL_RGBA32F);
+heightbuffer2 = createrendertarget(512, 512, 1, GL_RGB, GL_RGBA32F);
+rock = createrendertarget(512, 512, 1, GL_RGB, GL_RGBA32F);
+combinedheight = createrendertarget(512, 512, 1, GL_RGB, GL_RGBA32F);
+normalbuffer = createrendertarget(512, 512, 1, GL_RGB, GL_RGBA32F);
 noise = loadimage("noise.png");
 plane = loadmesh("quad.obj");
 
 perlin = loadshader("perlin.vert", "perlin.frag", 0, 0, 0);
+finalheight = loadshader("finalheight.vert", "finalheight.frag", 0, 0, 0);
 
 var tess = 1;
 
@@ -30,24 +33,27 @@ var pos = [0.0, 0.0, -3.0];
 registerglobal("angles");
 registerglobal("pos");
 var resettime = 0;
-function initHeight()
+function initHeight(buffer, seed, smin, smax, cmin, cmax)
 {
-    beginpass(heightbuffer1);
+    beginpass(buffer);
     {
         culling(CULL_NONE);
         cleardepth();
         bindshader(perlin);
-        setuniformf("time", TIME);
+        setuniformf("time", seed);
         bindattribute("in_Position", MESH_FLAG_POSITION);
         bindattribute("in_Uvs", MESH_FLAG_TEXCOORD0);
         bindtexture("noise", noise, GL_LINEAR, GL_LINEAR);
+        setuniformf("scale", smin, smax, cmin, cmax);
         drawmesh(plane);
         bindshader(-1);
     }
     endpass();
 }
 
-initHeight();
+initHeight(heightbuffer1, 0, 0, 0.1, -0.2, 4);
+initHeight(rockheight,  20.215, -0.8, 1, -0.2, 4);
+
 function loop()
 {
     var zrotmat = mat4setrotation(angles[0], 0, 1, 0);
@@ -68,15 +74,16 @@ function loop()
 
         if(MOUSE_1 & PRESSED_NOW)
         {
-            initHeight();
+            initHeight(rockheight, TIME + 20, -1, 1, 0, 1);
+            initHeight(heightbuffer1, TIME, 0, 0.1, -0.2, 4);
         }
     }
 
     resettime += DELTA_TIME;
 
-    if(resettime >= 2)
+    if(resettime >= 2.5)
     {
-        initHeight();
+        initHeight(heightbuffer1, TIME, 0, 0.1, -0.2, 4);
         resettime = 0;
     }
 
@@ -110,6 +117,19 @@ function loop()
         bindshader(-1);
     }
     endpass();
+    beginpass(combinedheight);
+    {
+        culling(CULL_NONE);
+        cleardepth();
+        bindshader(finalheight);
+        bindattribute("in_Position", MESH_FLAG_POSITION);
+        bindattribute("in_Uvs", MESH_FLAG_TEXCOORD0);
+        bindrendertarget("sand", heightbuffer1, 0, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE);
+        bindrendertarget("rock", rockheight, 0, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE);
+        drawmesh(plane);
+        bindshader(-1);
+    }
+    endpass();
     beginpass(normalbuffer);
     {
         culling(CULL_NONE);
@@ -117,14 +137,14 @@ function loop()
         bindshader(normal);
         bindattribute("in_Position", MESH_FLAG_POSITION);
         bindattribute("in_Uvs", MESH_FLAG_TEXCOORD0);
-        bindrendertarget("height", heightbuffer1, 0, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE);
+        bindrendertarget("height", combinedheight, 0, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE);
         drawmesh(plane);
         bindshader(-1);
     }
     endpass();
     beginpass();
     {
-        if(MOUSE_1 & PRESSED)
+        if(MOUSE_2 & PRESSED)
         {
             wireframe(1);
         }
@@ -136,7 +156,7 @@ function loop()
         bindattribute("in_Position", MESH_FLAG_POSITION);
         bindattribute("in_Uvs", MESH_FLAG_TEXCOORD0);
         bindrendertarget("image", normalbuffer, 0, GL_LINEAR, GL_LINEAR);
-        bindrendertarget("heightmap", heightbuffer1, 0, GL_LINEAR, GL_LINEAR);
+        bindrendertarget("heightmap", combinedheight, 0, GL_LINEAR, GL_LINEAR);
         var level = sin(TIME / 4.0) * 64.0;
 
         if(level <= 0)
